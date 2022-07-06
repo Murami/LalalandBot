@@ -37,8 +37,8 @@ from bs4 import BeautifulSoup
 # exit(0)
 
 con = sqlite3.connect('lalabot.db')
-client = pyxivapi.XIVAPIClient(api_key="3f229b0c86ed47859f4b9f10f208a169184de61e835449859cae491057a93d75")
-bot = interactions.Client(token="OTkzODE1NTgwODgyNzYzODI2.GujqRY.XkxR433v0pObmHHr7ii9KwZgFO2Wtydi-sTcqY")
+client = pyxivapi.XIVAPIClient(api_key="XIV API TOKEN")
+bot = interactions.Client(token="DISCORD API TOKEN")
 
 # cur = con.cursor()
 # cur.execute("CREATE TABLE user_verification (discord_id, lodestone_id, token, verified)")
