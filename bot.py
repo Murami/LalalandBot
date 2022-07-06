@@ -11,6 +11,31 @@ import aiohttp
 import pyxivapi
 from pyxivapi.models import Filter, Sort
 
+import requests
+import re
+from bs4 import BeautifulSoup
+
+# headers = {
+#     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36'
+# }
+
+# url = "https://na.finalfantasyxiv.com/lodestone/character/35866243/"
+
+# r = requests.get(url, headers=headers)
+
+# soup = BeautifulSoup(r.content, features="lxml")
+# prettyHTML = soup.prettify() 
+
+
+# raceHTML = soup.select(".character__profile__data__detail .character-block:nth-child(1) .character-block__name")[0]
+# race = raceHTML.text.lower()
+# isLala = "lalafell" in race
+
+
+
+# print(isLala)
+# exit(0)
+
 con = sqlite3.connect('lalabot.db')
 client = pyxivapi.XIVAPIClient(api_key="3f229b0c86ed47859f4b9f10f208a169184de61e835449859cae491057a93d75")
 bot = interactions.Client(token="OTkzODE1NTgwODgyNzYzODI2.GujqRY.XkxR433v0pObmHHr7ii9KwZgFO2Wtydi-sTcqY")
@@ -62,17 +87,33 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
     
     lodesteoneId = characterSearchResult['Results'][0]['ID']
 
-    character = await client.character_by_id(
-        lodestone_id=lodesteoneId, 
-        extended=True
-    )
+    ## XIVAPI seems to kinda update rly slowly. So for character data we directly scrap lodestone 
+    # character = await client.character_by_id(
+    #     lodestone_id=lodesteoneId, 
+    #     extended=True
+    # )
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36'
+    }
+    url = "https://fr.finalfantasyxiv.com/lodestone/character/{}/".format(lodesteoneId)
+    r = requests.get(url, headers=headers)
+    soup = BeautifulSoup(r.content, features="lxml")
+    prettyHTML = soup.prettify() 
 
-    #print(character)
+    ## Parse bio for token
+    bioLines = []
+    for bio in [ bioHTML.get_text(separator="\n") for bioHTML in soup.select(".character__selfintroduction") ]:
+        for line in bio.splitlines():
+            bioLines.append(line)
 
-    isLala = character['Character']['Race']['ID'] == 3
-    bioLines = character['Character']['Bio'].splitlines()
+    ## Parse race
+    raceHTML = soup.select(".character__profile__data__detail .character-block:nth-child(1) .character-block__name")[0]
+    race = raceHTML.text.lower()
+    isLala = "lalafell" in race
 
-    print(bioLines)
+    # isLala = character['Character']['Race']['ID'] == 3
+    # bioLines = character['Character']['Bio'].splitlines()
+    # print(bioLines)
 
     # ... then check if what we already know about it
     cur = con.cursor()
@@ -119,7 +160,7 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
                 await ctx.send("No no no ! Only lalas there !", ephemeral=True)
                 return
             else:
-                cur.execute("UPDATE user_verification SET verified=? WHERE discordId=?", (True, str(discordId)))
+                cur.execute("UPDATE user_verification SET verified=? WHERE discord_id=?", (True, str(discordId)))
                 con.commit()
                 await ctx.send("Congratulations, your account have been verified ! Welcome to Lalaland", ephemeral=True)
                 return
