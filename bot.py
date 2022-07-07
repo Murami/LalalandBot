@@ -11,6 +11,7 @@ import requests
 from bs4 import BeautifulSoup
 import os
 from dotenv import load_dotenv
+import asyncio
 
 load_dotenv()
 #logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
@@ -32,6 +33,9 @@ bot = interactions.Client(token=DISCORD_TOKEN)
 # cur = con.cursor()
 # cur.execute("CREATE TABLE user_verification (discord_id, lodestone_id, token, verified)")
 # con.commit()
+
+log = logging.getLogger("LALABOT")
+log.info(f"Lalaland Bot started !")
 
 @bot.command(
     name="addpotato",
@@ -91,8 +95,10 @@ async def clearlaladb_command(ctx: interactions.CommandContext):
     ],
 )
 async def iamlala_command(ctx: interactions.CommandContext, world: str, forename: str, surname: str):
+    log.info("iamlala command: invoked by {} (world:{}, forename:{}, surname:{})".format(ctx.user, world, forename, surname))
     discordId = ctx.user.id
 
+    await ctx.defer()
     # Search for character ...
     characterSearchResult = await client.character_search(
         world=world, 
@@ -101,13 +107,17 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
     )
 
     if len(characterSearchResult['Results']) == 0:
+        log.info("iamlala command: no character found. (invoker: {}, world:{}, forename:{}, surname:{})".format(ctx.user, world, forename, surname))
         await ctx.send("No character found :(")
         return
     elif len(characterSearchResult['Results']) > 1:
+        log.info("iamlala command: too many characters found. (invoker: {}, world:{}, forename:{}, surname:{})".format(ctx.user, world, forename, surname))
         await ctx.send("Too many characters found for this search -_-", ephemeral=ephemeral)
         return
     
     lodesteoneId = characterSearchResult['Results'][0]['ID']
+
+    log.info("iamlala command: characters found, id={}. (invoker: {}, world:{}, forename:{}, surname:{})".format(lodesteoneId, ctx.user, world, forename, surname))
 
     ## XIVAPI seems to kinda update rly slowly. So for character data we directly scrap lodestone 
     # character = await client.character_by_id(
@@ -139,12 +149,10 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
 
     ##################
     ### Not registered / Try to register the user
-    print(userVerificationResult)
     if len(userVerificationResult) == 0 or userVerificationResult[0][3] == False:
-        
         ## Need to create entry and the token ...
         if len(userVerificationResult) == 0:
-            print("no user_verification entry found")
+            log.info("iamlala command: user is not verified. No entry found in db. Creating entry. (invoker: {}, world:{}, forename:{}, surname:{})".format(ctx.user, world, forename, surname))    
             # token generation
             m = hashlib.md5()
             m.update(str(discordId).encode("utf-8"))
@@ -152,7 +160,6 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
             authToken = "lalabot-" + str(b64encode(m.digest()))
 
             # create the entry
-            print("create user_verification entry")
             cur.execute("INSERT INTO user_verification VALUES(?, ?, ?, ?)", (str(discordId), str(lodesteoneId), authToken, False))
             con.commit()
 
@@ -160,32 +167,31 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
             entry = userVerificationResult[0]
         ## ... or use the one we got
         else:
-            print("1 user_verification entry found")
+            log.info("iamlala command: user is not verified. Entry found in db. (invoker: {}, world:{}, forename:{}, surname:{})".format(ctx.user, world, forename, surname))    
             entry = userVerificationResult[0]
         
         ## Does the user has the token in its lodestone profile ?
         token = entry[2]
         hasToken = False
-        print(bioLines)
         for line in bioLines:
-            print(line)
             if line == token:
                 hasToken = True
 
         ## yes, they do so we can register them (if they are lala :p)
         if hasToken:
             if not isLala:
+                log.info("iamlala command: REJECTING: user has token in bio but is not a lala. (invoker: {}, world:{}, forename:{}, surname:{})".format(ctx.user, world, forename, surname))    
                 await ctx.send("No no no ! Only lalas there !", ephemeral=ephemeral)
                 return
             else:
+                log.info("iamlala command: ACCEPTING: user has token in bio and is a lala. (invoker: {}, world:{}, forename:{}, surname:{})".format(ctx.user, world, forename, surname))    
+
                 # store as verified
                 cur.execute("UPDATE user_verification SET verified=? WHERE discord_id=?", (True, str(discordId)))
                 con.commit()
 
                 # update roles
-                #guild = await ctx.get_guild()
                 await ctx.client.add_member_role(guild_id, discordId, potato)
-                #await ctx.user.add_role(potato, guild_id)
 
                 # welcome !
                 await ctx.send("Congratulations, your account have been verified ! Welcome to Lalaland", ephemeral=ephemeral)
@@ -193,12 +199,14 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
 
         ## no, we tell them their tokens
         else:
+            log.info("iamlala command: REJECTING: user do not have token in bio. (invoker: {}, world:{}, forename:{}, surname:{})".format(ctx.user, world, forename, surname))    
             await ctx.send("Hey, i can't register your character :(\nYou need to put this string into your lodestone bio:\n``{}``".format(token), ephemeral=ephemeral)
             return
 
     ##################
     ## Registered
     else:
+        log.info("iamlala command: user is already registered. (invoker: {}, world:{}, forename:{}, surname:{})".format(ctx.user, world, forename, surname))    
         await ctx.client.add_member_role(guild_id, discordId, potato)
         await ctx.send("Your character is already registered.")
         return
