@@ -1,49 +1,33 @@
+#!/usr/bin/env python3
+
 import interactions
-
-import hashlib
-from base64 import b64decode, b64encode
-
-import sqlite3
-
-import asyncio
 import logging
-import aiohttp
+import hashlib
+from base64 import  b64encode
+import sqlite3
+import logging
 import pyxivapi
-from pyxivapi.models import Filter, Sort
-
 import requests
-import re
 from bs4 import BeautifulSoup
+import os
+from dotenv import load_dotenv
 
-#guild_id=970053878412345374
-#potato=970064386662228018
-guild_id=868573364762054697
-potato=994611463132020846
+load_dotenv()
+#logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
+logging.basicConfig(filename="lalalandbot.log", format="%(levelname)s:%(message)s", level=logging.INFO)
+
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+XIV_API_TOKEN = os.getenv("XIV_API_TOKEN")
+
+# Hardcoded ... xD
+guild_id=970053878412345374
+potato=970064386662228018
+
 ephemeral=False
-# headers = {
-#     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36'
-# }
-
-# url = "https://na.finalfantasyxiv.com/lodestone/character/35866243/"
-
-# r = requests.get(url, headers=headers)
-
-# soup = BeautifulSoup(r.content, features="lxml")
-# prettyHTML = soup.prettify() 
-
-
-# raceHTML = soup.select(".character__profile__data__detail .character-block:nth-child(1) .character-block__name")[0]
-# race = raceHTML.text.lower()
-# isLala = "lalafell" in race
-
-
-
-# print(isLala)
-# exit(0)
 
 con = sqlite3.connect('lalabot.db')
-client = pyxivapi.XIVAPIClient(api_key="37a8188ee522466d9eab22ce37f66214293f180b9ac041fc983db0981d0ecb66")
-bot = interactions.Client(token="OTkzODE1NTgwODgyNzYzODI2.G9-4dc.MzseGMR_18RKfqr83Ioa4l9fayf9auDLxxFQtA")
+client = pyxivapi.XIVAPIClient(api_key=XIV_API_TOKEN)
+bot = interactions.Client(token=DISCORD_TOKEN)
 
 # cur = con.cursor()
 # cur.execute("CREATE TABLE user_verification (discord_id, lodestone_id, token, verified)")
@@ -65,9 +49,10 @@ bot = interactions.Client(token="OTkzODE1NTgwODgyNzYzODI2.G9-4dc.MzseGMR_18RKfqr
 )
 async def addpotato_command(ctx: interactions.CommandContext, user: interactions.Member):
     guild = await ctx.get_guild()
-    await user.add_role(guild.id, potato)
+    await user.add_role(potato, guild_id)
     await ctx.send(f"hey {ctx.author.name}, {user.name} has been giving potato role")
 
+### DANGEROUS COMMAND THERE !!!!
 @bot.command(
     name="clearlaladb",
     description="Clear the lala registration DB",
@@ -148,10 +133,6 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
     race = raceHTML.text.lower()
     isLala = "lalafell" in race
 
-    # isLala = character['Character']['Race']['ID'] == 3
-    # bioLines = character['Character']['Bio'].splitlines()
-    # print(bioLines)
-
     # ... then check if what we already know about it
     cur = con.cursor()
     userVerificationResult = cur.execute("SELECT * FROM user_verification WHERE discord_id=?", (str(discordId), )).fetchall()
@@ -197,8 +178,16 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
                 await ctx.send("No no no ! Only lalas there !", ephemeral=ephemeral)
                 return
             else:
+                # store as verified
                 cur.execute("UPDATE user_verification SET verified=? WHERE discord_id=?", (True, str(discordId)))
                 con.commit()
+
+                # update roles
+                #guild = await ctx.get_guild()
+                await ctx.client.add_member_role(guild_id, discordId, potato)
+                #await ctx.user.add_role(potato, guild_id)
+
+                # welcome !
                 await ctx.send("Congratulations, your account have been verified ! Welcome to Lalaland", ephemeral=ephemeral)
                 return
 
@@ -210,6 +199,7 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
     ##################
     ## Registered
     else:
+        await ctx.client.add_member_role(guild_id, discordId, potato)
         await ctx.send("Your character is already registered.")
         return
     
