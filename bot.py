@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from time import sleep
 import interactions
 import logging
 import hashlib
@@ -56,18 +57,18 @@ async def addpotato_command(ctx: interactions.CommandContext, user: interactions
     await user.add_role(potato, guild_id)
     await ctx.send(f"hey {ctx.author.name}, {user.name} has been giving potato role")
 
-### DANGEROUS COMMAND THERE !!!!
-@bot.command(
-    name="clearlaladb",
-    description="Clear the lala registration DB",
-    default_member_permissions=interactions.Permissions.ADMINISTRATOR,
-    scope=guild_id
-)
-async def clearlaladb_command(ctx: interactions.CommandContext):
-    cur = con.cursor()
-    cur.execute("DELETE FROM user_verification")
-    con.commit()
-    await ctx.send("Done.", ephemeral=ephemeral)
+# ### DANGEROUS COMMAND THERE !!!!
+# @bot.command(
+#     name="clearlaladb",
+#     description="Clear the lala registration DB",
+#     default_member_permissions=interactions.Permissions.ADMINISTRATOR,
+#     scope=guild_id
+# )
+# async def clearlaladb_command(ctx: interactions.CommandContext):
+#     cur = con.cursor()
+#     cur.execute("DELETE FROM user_verification")
+#     con.commit()
+#     await ctx.send("Done.", ephemeral=ephemeral)
 
 @bot.command(
     name="iamlala",
@@ -211,4 +212,12 @@ async def iamlala_command(ctx: interactions.CommandContext, world: str, forename
         await ctx.send("Your character is already registered.")
         return
     
-bot.start()
+while True:
+    try:
+        bot.start()
+    except asyncio.TimeoutError:
+        log.info("timeout error in bot.start(), restarting the bot in 10 sec")
+        sleep(10)
+    except Exception:
+        log.info("Unknown error: bot will be terminated")
+        exit(-1)
